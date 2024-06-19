@@ -10,6 +10,7 @@ The project consists of the following Python files:
 - **game.py**: Contains the `SnakeGameAI` class which simulates the Snake game environment. It manages game state, user input, collision detection, and scoring.
 - **model.py**: Implements the neural network model (`Linear_QNet`) used by the AI agent to predict Q-values. Also defines the `QTrainer` class responsible for training the model.
 - **plot.py**: Provides plotting functions using Matplotlib to visualize game scores and mean scores over time during training.
+- **snake_game.py**: Is the human playable version of the game.
 
 ## Dependencies
 
