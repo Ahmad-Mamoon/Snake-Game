@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Snake AI Lab</title>
+<meta name="description" content="Play Snake, or train a Deep-Q-Learning agent to play it, right in your browser." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1328'/%3E%3Crect x='6' y='6' width='9' height='9' fill='%236ee7b7'/%3E%3Crect x='17' y='6' width='9' height='9' fill='%2360a5fa'/%3E%3Crect x='17' y='17' width='9' height='9' fill='%2360a5fa'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="topbar">
+    <div class="brand">
+        <span class="logo" aria-hidden="true"></span>
+        <div>
+            <h1>Snake AI Lab</h1>
+            <p class="tagline">Play Snake yourself, or train a Deep-Q-Learning agent live in your browser.</p>
+        </div>
+    </div>
+    <a href="https://github.com/" class="btn ghost" id="repo-link" target="_blank" rel="noopener">GitHub</a>
+</header>
+
+<main class="app">
+    <section class="stage card" aria-label="Game">
+        <div class="mode-tabs" role="tablist" aria-label="Mode">
+            <button role="tab" data-mode="manual" aria-selected="true">Play</button>
+            <button role="tab" data-mode="train" aria-selected="false">Train AI</button>
+            <button role="tab" data-mode="watch" aria-selected="false">Watch AI</button>
+        </div>
+
+        <div class="board-wrap" id="board-wrap" tabindex="0" aria-label="Snake board">
+            <canvas id="board"></canvas>
+            <div class="overlay" id="overlay">
+                <p class="overlay-title" id="overlay-title"></p>
+                <p class="overlay-sub" id="overlay-sub"></p>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" id="btn-run">Start</button>
+            <button class="btn ghost" id="btn-step" title="Advance one step while paused">Step</button>
+            <button class="btn ghost" id="btn-restart">New game</button>
+            <span class="hint" id="key-hint"><kbd>Space</kbd> start / pause</span>
+        </div>
+
+        <div class="stats" id="stage-stats"></div>
+
+        <div class="dpad" id="dpad" aria-hidden="true">
+            <button data-dir="3">▲</button>
+            <button data-dir="2">◀</button>
+            <button data-dir="1">▼</button>
+            <button data-dir="0">▶</button>
+        </div>
+    </section>
+
+    <aside class="panel card" aria-label="Settings">
+        <div class="panel-head">
+            <h2>Settings</h2>
+            <button class="link" id="btn-defaults" title="Restore every setting to its default">Reset to defaults</button>
+        </div>
+        <p class="panel-note">Changes apply instantly, so you can tweak things while a game or training run is going.</p>
+
+        <details open>
+            <summary>Speed</summary>
+            <label class="field">
+                <span>Speed <em id="speed-mode-label">(Play)</em></span>
+                <div class="range-row">
+                    <input type="range" id="speed" min="0" max="100" step="1" />
+                    <output id="speed-out"></output>
+                </div>
+            </label>
+            <label class="check" data-ai-only>
+                <input type="checkbox" data-field="turbo" /> <span>Max speed (run as fast as the browser allows)</span>
+            </label>
+            <label class="check" data-ai-only>
+                <input type="checkbox" data-field="render" /> <span>Draw the board (switch off for faster training)</span>
+            </label>
+        </details>
+
+        <details open>
+            <summary>Board</summary>
+            <div class="two">
+                <label class="field"><span>Width (cells)</span><input type="number" data-field="cols" /></label>
+                <label class="field"><span>Height (cells)</span><input type="number" data-field="rows" /></label>
+            </div>
+            <label class="check"><input type="checkbox" data-field="showGrid" /> <span>Show grid lines</span></label>
+            <p class="field-note">A new board size takes effect from the next game.</p>
+        </details>
+
+        <details open>
+            <summary>Training</summary>
+            <label class="field">
+                <span>Games per run <em>(0 = keep going until paused)</em></span>
+                <input type="number" data-field="maxGames" />
+            </label>
+            <div class="two">
+                <label class="field"><span>Learning rate</span><input type="number" data-field="lr" step="0.0001" /></label>
+                <label class="field"><span>Discount (gamma)</span><input type="number" data-field="gamma" step="0.01" /></label>
+            </div>
+            <div class="two">
+                <label class="field"><span>Batch size</span><input type="number" data-field="batchSize" /></label>
+                <label class="field"><span>Replay memory</span><input type="number" data-field="memory" step="1000" /></label>
+            </div>
+            <div class="two">
+                <label class="field"><span>Exploration start %</span><input type="number" data-field="epsStart" step="1" /></label>
+                <label class="field"><span>Exploration min %</span><input type="number" data-field="epsMin" step="1" /></label>
+            </div>
+            <label class="field">
+                <span>Exploration decays over (games)</span>
+                <input type="number" data-field="exploreGames" />
+            </label>
+            <label class="field">
+                <span>Frame limit <em>(game ends after N × length steps without dying; 0 = off)</em></span>
+                <input type="number" data-field="frameLimit" />
+            </label>
+            <label class="field">
+                <span>Hidden neurons</span>
+                <input type="number" data-field="hidden" step="16" />
+            </label>
+            <p class="field-note" id="hidden-note" hidden>The new hidden size is used when you press <strong>New agent</strong>.</p>
+            <p class="field-note">Browsers pause the page while its tab is in the background, so training pauses too.</p>
+        </details>
+
+        <details>
+            <summary>Rewards</summary>
+            <div class="three">
+                <label class="field"><span>Food</span><input type="number" data-field="rewardFood" /></label>
+                <label class="field"><span>Death</span><input type="number" data-field="rewardDeath" /></label>
+                <label class="field"><span>Each step</span><input type="number" data-field="rewardStep" step="0.1" /></label>
+            </div>
+        </details>
+
+        <details open>
+            <summary>Model</summary>
+            <div class="btn-grid">
+                <button class="btn ghost" id="btn-save">Save in browser</button>
+                <button class="btn ghost" id="btn-load">Load saved</button>
+                <button class="btn ghost" id="btn-pretrained">Load pretrained</button>
+                <button class="btn ghost" id="btn-export">Download .json</button>
+                <button class="btn ghost" id="btn-import">Upload .json</button>
+                <button class="btn ghost danger" id="btn-new-agent">New agent</button>
+            </div>
+            <input type="file" id="file-import" accept=".json,application/json" hidden />
+            <label class="check"><input type="checkbox" data-field="autoSave" /> <span>Save automatically on every new record</span></label>
+            <p class="field-note">“Load pretrained” uses the weights trained with the Python version (<code>model/model.pth</code>).</p>
+        </details>
+
+        <p class="toast" id="toast" role="status" aria-live="polite"></p>
+    </aside>
+
+    <section class="card chart-card" aria-label="Training progress">
+        <div class="chart-head">
+            <h2>Training progress</h2>
+            <ul class="legend">
+                <li><i style="--c: var(--series-1)"></i>Score</li>
+                <li><i style="--c: var(--series-2)"></i>Mean</li>
+                <li><i style="--c: var(--series-3)"></i>Last-100 mean</li>
+            </ul>
+        </div>
+        <div class="stats" id="train-stats"></div>
+        <canvas id="chart"></canvas>
+    </section>
+
+    <section class="card info">
+        <h2>How the agent learns</h2>
+        <p>
+            The AI uses <strong>Deep Q-Learning</strong>: a small network (11 inputs → hidden layer → 3 outputs)
+            estimates how good each of three moves is: go straight, turn right, or turn left.
+            The browser version is a direct port of the Python code in this repository.
+        </p>
+        <ul class="grid">
+            <li><h3>What it sees</h3><p>11 yes/no signals: danger straight, right or left; which way it is moving; and which way the food is.</p></li>
+            <li><h3>Rewards</h3><p>+10 for eating, −10 for dying or looping too long, 0 otherwise. You can change these above.</p></li>
+            <li><h3>Exploration</h3><p>It starts by making random moves, and these become rarer as it plays more games.</p></li>
+            <li><h3>Replay memory</h3><p>It stores past moves and re-learns from a random batch of them after every game.</p></li>
+        </ul>
+    </section>
+
+    <section class="card info">
+        <h2>Run the Python version</h2>
+<pre><code>pip install -r requirements.txt
+python play.py                      # play with arrow keys / WASD
+python train.py                     # train with a pygame window + live plot
+python train.py --games 300 --no-render --no-plot   # fast headless run
+python train.py --help              # every option (speed, lr, gamma, ...)
+python export_model.py              # make model.pth loadable on this page</code></pre>
+    </section>
+</main>
+
+<footer>Deep-Q-Learning Snake · PyTorch &amp; Pygame, ported to plain JavaScript for the browser.</footer>
+
+<script src="js/game.js"></script>
+<script src="js/dqn.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

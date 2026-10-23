@@ -1,52 +1,92 @@
-# Snake Game AI with Reinforcement Learning
+# Snake AI – Deep-Q-Learning
 
-This project implements an AI agent using reinforcement learning to play the classic Snake game. The agent learns to navigate the game environment, collect food, and avoid collisions using a Q-learning approach implemented with PyTorch.
+A reinforcement-learning agent that teaches itself to play Snake, built with
+PyTorch and Pygame. It comes with a **browser app** where you can play the game
+yourself, or train and watch the AI live, adjusting every setting while it runs.
 
-## Project Structure
+**Live app:** `https://<your-username>.github.io/Snake-Game/` (see
+[Deploy to GitHub Pages](#deploy-to-github-pages)).
 
-The project consists of the following Python files:
+## The web app (`docs/`)
 
-- **agent.py**: Defines the `Agent` class responsible for the AI agent's behavior, including state handling, action selection, memory management, and training methods.
-- **game.py**: Contains the `SnakeGameAI` class which simulates the Snake game environment. It manages game state, user input, collision detection, and scoring.
-- **model.py**: Implements the neural network model (`Linear_QNet`) used by the AI agent to predict Q-values. Also defines the `QTrainer` class responsible for training the model.
-- **plot.py**: Provides plotting functions using Matplotlib to visualize game scores and mean scores over time during training.
-- **snake_game.py**: Is the human playable version of the game.
+Everything runs in the browser and nothing needs to be installed. The neural network
+is a dependency-free JavaScript port of the Python model, and it produces the same
+outputs as PyTorch for the same weights.
 
-## Dependencies
+| Mode | What it does |
+|------|--------------|
+| **Play** | Classic Snake. Arrow keys or WASD to move, Space to pause. Swipe or use the on-screen pad on phones. |
+| **Train AI** | Trains a fresh Deep-Q agent live, with a chart of score, mean and last-100 mean. |
+| **Watch AI** | The current agent plays with no random moves, so you can see what it has learned. |
 
-- Python 3.x
-- Pygame
-- NumPy
-- PyTorch
-- Matplotlib
+Settings, all of which apply immediately (even mid-run):
 
-## How to Run
+- **Speed**: a separate speed for each mode (1–1000 steps/s), a *Max speed* mode, and an option to stop drawing the board for faster training
+- **Board**: width and height in cells (applied from the next game), and grid lines
+- **Training**: games per run, learning rate, gamma, batch size, replay memory, exploration start / min / decay, frame limit, hidden-layer size
+- **Rewards**: food, death, and per-step reward
+- **Model**: save to or load from the browser, auto-save on each new record, download / upload `.json`, and *Load pretrained* (the weights trained with the Python version)
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/your-username/snake-game-ai.git
-   cd snake-game-ai
+Settings and your best manual score are remembered in the browser.
 
-2. **Install dependencies:**
-   ```bash
-    pip install pygame numpy torch matplotlib
+## Project layout
 
-3. **Run the training script:**
-    ```bash
-    python agent.py
+```
+Snake-Game/
+├── src/snakeai/               # Python package
+│   ├── agent.py               # DQN agent + training loop
+│   ├── game.py                # Pygame environment the AI drives
+│   ├── human_game.py          # Keyboard-controlled Snake
+│   ├── model.py               # Linear_QNet + QTrainer
+│   └── plot.py                # Live training-score plot
+├── train.py                   # Train the agent (CLI options below)
+├── play.py                    # Play with arrow keys / WASD
+├── export_model.py            # model/model.pth -> docs/pretrained.json
+├── docs/                      # Web app (GitHub Pages)
+│   ├── index.html, style.css
+│   ├── pretrained.json        # exported weights for "Load pretrained"
+│   └── js/
+│       ├── game.js            # Snake engine (same rules/state as game.py)
+│       ├── dqn.js             # Q-network, Adam, replay memory, agent
+│       ├── chart.js           # training chart
+│       └── app.js             # UI, modes, settings, input
+├── assets/arial.ttf
+├── model/                     # saved weights + plot (git-ignored)
+└── requirements.txt
+```
 
-4. **Monitor training:**
-   - While the training is running, you can observe the game's progress in the Pygame window.
-   - Matplotlib also displays a dynamic plot showing the scores and mean scores over the course of training.
+## Python version
 
-5. **End Training:**
-   - You can manually stop training at any point or you can specify the iterations count.
-   - The best performing model is saved automatically (model.pth in the ./model folder).
+```bash
+pip install -r requirements.txt
 
-## Customization and Extension
-  - **Adjusting Parameters:** You can modify parameters such as MAX_MEMORY, BATCH_SIZE, and LR in train.py and agent.py to optimize training performance.
-  - **Enhancing Game Features:** Extend the SnakeGameAI class in game.py to add more game features, different rewards, or more complex game mechanics.
-  - **Experimenting with Neural Networks:** Modify the model architecture or try different neural network models in model.py to improve learning and performance.
+python play.py                     # play (R restart, P pause, Esc quit)
+python play.py --speed 20          # faster snake
 
-## Credits
-  - The initial structure and training loop of the project were inspired by various tutorials and resources on reinforcement learning and game AI.
+python train.py                    # train with a pygame window + live plot
+python train.py --games 300 --no-render --no-plot   # fast headless training
+python train.py --resume           # continue from model/model.pth
+python train.py --lr 0.0005 --gamma 0.95 --hidden 512 --explore-games 120
+python train.py --help             # all options
+```
+
+The best model is saved to `model/model.pth` whenever a new record is set.
+With `--resume`, the saved model is only replaced when its record is beaten.
+To use your own trained model on the website:
+
+```bash
+python export_model.py             # writes docs/pretrained.json
+```
+
+## How the agent works
+
+- **State (11 features)**: danger straight / right / left, current direction (4 flags), and food left / right / up / down.
+- **Network**: `Linear_QNet(11 → 256 → 3)`, giving Q-values for go straight, turn right, and turn left.
+- **Rewards**: `+10` for food, `-10` for dying or for taking more than `100 × length` steps without dying.
+- **Exploration**: ε-greedy, starting at about 40% random moves and decaying to zero over the first 80 games.
+- **Learning**: one update after every step, plus a replay batch (up to 1 000 of the last 100 000 moves) after every game, using Adam with lr 0.001 and γ 0.9.
+
+
+## License
+
+MIT
