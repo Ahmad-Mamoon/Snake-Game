@@ -4,8 +4,7 @@ A reinforcement-learning agent that teaches itself to play Snake, built with
 PyTorch and Pygame. It comes with a **browser app** where you can play the game
 yourself, or train and watch the AI live, adjusting every setting while it runs.
 
-**Live app:** `https://<your-username>.github.io/Snake-Game/` (see
-[Deploy to GitHub Pages](#deploy-to-github-pages)).
+**Live app:** `https://ahmad-mamoon.github.io/Snake-Game/`.
 
 ## The web app (`docs/`)
 
